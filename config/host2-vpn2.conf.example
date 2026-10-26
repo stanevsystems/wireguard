@@ -1,0 +1,10 @@
+[Interface]
+PrivateKey = QFMBzwF/ipOQWcsx6Rc3ogJbce0ldVYlrRjAyZ37pEY=
+Address = 10.200.2.2/32
+
+[Peer]
+# VPN server 2 (45.144.30.165)
+PublicKey = Tm27HQ9uS4TL0zCguamTTLadS8/MnczmCLOsVaJm6Vk=
+AllowedIPs = 10.200.2.0/24
+Endpoint = 45.144.30.165:51820
+PersistentKeepalive = 25
