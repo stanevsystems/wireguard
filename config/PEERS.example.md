@@ -5,9 +5,9 @@
 | Имя | Octet N | VPN-1 `10.200.1.N` | VPN-2 `10.200.2.N` | Роль / где физически |
 |-----|---------|--------------------|--------------------|----------------------|
 | host2 / Home-3 | 2 | .2 | .2 | Windows HOME-3, **exit VPN-2**, VMware + corp VM |
-| host3 | 3 | .3 | .3 | (история) клиентская Windows |
+| host3 | 3 | .3 | .3 | legacy на TECHO-1 (заменить на **laptop** .4) |
+| laptop | 4 | .4 | .4 | **TECHO-1** Windows-хост, split /24 |
 | laptop-gw | 5 | .5 | .5 | **CentOS** на ноутбуке, WG + прокси для corp VM |
-| laptop | 4+ | … | … | (резерв) хост ОС ноутбука, если отдельный peer |
 | Home-1 | 6? | … | … | **exit VPN-1** (octet зафиксировать при деплое) |
 
 Регистрация: `scripts/Deploy-WireGuardClient.ps1 -RegisterOnServers` или `scripts/deploy-wireguard-client-macos.sh --register`.

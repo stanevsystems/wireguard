@@ -30,6 +30,12 @@ param(
 
     [switch]$RegisterOnServers,
 
+    [switch]$RegisterVpn2Only,
+
+    [switch]$RegisterOnly,
+
+    [string]$SshIdentityFile = "$env:USERPROFILE\.ssh\id_ed25519",
+
     [string]$Vpn1Server = '176.32.32.246',
     [string]$Vpn2Server = '45.144.30.165'
 )
@@ -146,11 +152,22 @@ printf '\n[Peer]\n# %s\nPublicKey = %s\nAllowedIPs = %s\n' "$COMMENT" "$PUB" "$I
     $sshArgs = @(
         '-o', 'BatchMode=yes',
         '-o', 'ConnectTimeout=15',
-        '-o', 'StrictHostKeyChecking=accept-new'
+        '-o', 'StrictHostKeyChecking=accept-new',
+        '-o', 'IdentitiesOnly=yes'
     )
+    if ($SshIdentityFile -and (Test-Path $SshIdentityFile)) {
+        $sshArgs += @('-i', $SshIdentityFile)
+    }
     $bash | & ssh @sshArgs "root@$SshHost" 'bash -s'
     if ($LASTEXITCODE -ne 0) {
-        throw "SSH/register failed on ${SshHost} (exit $LASTEXITCODE). Run: ssh-keyscan -H ${SshHost} >> `$env:USERPROFILE\.ssh\known_hosts"
+        $hint = @'
+SSH/register failed. Частые причины на Windows:
+  1) Ключ id_ed25519 с passphrase — запустите ssh-agent и ssh-add:
+       Set-Service ssh-agent -StartupType Manual; Start-Service ssh-agent
+       ssh-add $env:USERPROFILE\.ssh\id_ed25519
+  2) Или из Git Bash: bash D:\exchange\projects\_my_projects\wireguard\scripts\register-laptop-gw-vpn2.sh
+'@
+        throw "SSH/register failed on ${SshHost} (exit $LASTEXITCODE).`n$hint"
     }
     Write-Host "Peer registered on ${SshHost}: ${AllowedIp32}" -ForegroundColor Green
 }
@@ -194,7 +211,14 @@ $ip1 = "$VPN1_SUBNET.$HostOctet"
 $ip2 = "$VPN2_SUBNET.$HostOctet"
 
 if ($RegisterOnServers) {
-    Register-PeerOnServer -SshHost $Vpn1Server -PublicKey $keys.Public -AllowedIp32 "${ip1}/32" -Comment "$ClientName (Windows)"
+    if (-not $RegisterVpn2Only) {
+        try {
+            Register-PeerOnServer -SshHost $Vpn1Server -PublicKey $keys.Public -AllowedIp32 "${ip1}/32" -Comment "$ClientName (Windows)"
+        } catch {
+            Write-Warning "VPN-1 register failed: $($_.Exception.Message). Use -RegisterVpn2Only or docs/VPS-REGISTER-LAPTOP-GW.md"
+            if (-not $RegisterVpn2Only) { throw }
+        }
+    }
     Register-PeerOnServer -SshHost $Vpn2Server -PublicKey $keys.Public -AllowedIp32 "${ip2}/32" -Comment "$ClientName (Windows)"
 } else {
     Write-Warning 'Peer на серверах НЕ добавлены. Запустите с -RegisterOnServers или добавьте вручную:'
@@ -212,6 +236,13 @@ New-TunnelConf -PrivateKey $keys.Private -Address $ip1 -HubPub $VPN1_HUB_PUB `
     -AllowedCidr "$VPN1_SUBNET.0/24" -EndpointHost $Vpn1Server | Set-Content $conf1Local -Encoding ascii
 New-TunnelConf -PrivateKey $keys.Private -Address $ip2 -HubPub $VPN2_HUB_PUB `
     -AllowedCidr "$VPN2_SUBNET.0/24" -EndpointHost $Vpn2Server | Set-Content $conf2Local -Encoding ascii
+
+if ($RegisterOnly) {
+    Write-Host "`nRegisterOnly: peer на VPS обновлён, туннели Windows не ставились." -ForegroundColor Green
+    Write-Host "PublicKey: $($keys.Public)"
+    Write-Host "Ключи: $StateDir"
+    return
+}
 
 New-Item -ItemType Directory -Force -Path $WgDest | Out-Null
 Copy-Item $conf1Local (Join-Path $WgDest $conf1Name) -Force

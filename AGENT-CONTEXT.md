@@ -1,63 +1,55 @@
 # Agent context: WireGuard + laptop CentOS gateway
 
-Bootstrap a **new chat** for: **CentOS gw VM** on travel laptop, corp VMs **host-only**, egress **only** via **Home-1 / Home-3 exit NAT**, gated HTTP proxy on CentOS.
-
 **Canonical handoff:** `d:\Exchange\projects\_my_projects\wireguard\`  
-**Implementation tree:** `d:\Exchange\projects\wireguard-setup\` (legacy host2 corp proxy, v2rayN, corp-proxy JVM).
-
-## Pivot (2026-10-26)
-
-| Deprecated for travel laptop | Current |
-|------------------------------|---------|
-| Split WG `/24` + corp proxy on Home-3 `:3128` ACL | Full tunnel to **one** home exit; corp VM → **CentOS :3128** on host-only |
-| Ubuntu host as WG client | **CentOS** minimal VM = only router/proxy for corp guests |
-| Mac host1 router abroad | **Home-1** + **Home-3** in RF as symmetric exit nodes |
+**Implementation tree:** `d:\Exchange\projects\wireguard-setup\` (legacy host2 corp proxy, v2rayN).
 
 **Architecture:** `docs/LAPTOP-GW-ARCHITECTURE.md`
 
-## Agent runbooks (by machine)
+## Active phase (2026-10-27): VPN-2 / Home-3 only
 
-| Host | Doc |
-|------|-----|
-| **Home-3** (now) | `docs/AGENT-HOME-3.md` |
-| **Home-1** | `docs/AGENT-HOME-1.md` |
-| **Travel laptop** | `docs/AGENT-LAPTOP.md` |
+Home-1 и VPS-1 **отложены**. Следующий агентский чат на **Home-3**: **`docs/NEXT-HOME-3-E2E.md`**.
 
-## WG topology
+## Status by machine
 
-| Node | Public | Role |
-|------|--------|------|
-| VPN-1 | 176.32.32.246 | hub `10.200.1.1/24`; exit → **Home-1** |
-| VPN-2 | 45.144.30.165 | hub `10.200.2.1/24`; exit → **Home-3** (`10.200.2.2`) |
-| Home-3 / host2 | — | `.1.2`, `.2.2`; `Enable-WindowsWgExitNode.ps1` |
-| laptop-gw CentOS | — | octet **5** → `.1.5`, `.2.5` (see `config/PEERS.example.md`) |
+| Machine | Status |
+|---------|--------|
+| **TECHO-1 laptop** | `laptop-vpn2`, CentOS gw, `host3-*` removed — см. `docs/LAPTOP-HOST-STATUS.md`, `docs/CENTOS-ROUTER-STATUS.md` |
+| **CentOS-Router** | wg-home3 + Squid + egress-check; **ждёт Home-3 exit** (egress сейчас IP VPS) |
+| **Home-3** | **TODO E2E** — `docs/NEXT-HOME-3-E2E.md`, runbook `docs/AGENT-HOME-3.md` |
+| **Home-1** | deferred |
 
-Port **51820/udp**. Hubs: `ip_forward=1`. **No** site-to-site between VPS-1 and VPS-2.
+## WG topology (VPN-2 path)
 
-Exit on hub: peer `AllowedIPs = <home-wg-ip>/32, 0.0.0.0/0` — **one exit per VPS** (`scripts/vps-set-exit-peer.sh`).
+| Node | Public | WG | Role |
+|------|--------|-----|------|
+| VPS-2 | 45.144.30.165 | 10.200.2.1 | hub |
+| Home-3 | — | 10.200.2.2 | **exit NAT** |
+| laptop (Windows) | — | 10.200.2.4 | split admin |
+| laptop-gw (CentOS) | — | 10.200.2.5 | full tunnel + proxy |
 
-## Home-3 legacy (still on disk, not travel path)
-
-- `Host2VpnForwardProxy` :3128 corp ACL — local/legacy; see `docs/HOST2-FORWARD-PROXY.md`
-- v2rayN → corp-proxy `.140:3332` on VMware VM
-
-## Scripts (this repo)
-
-| Script | Use |
-|--------|-----|
-| `scripts/Enable-WindowsWgExitNode.ps1` | Home-1 / Home-3 NAT |
-| `scripts/vps-set-exit-peer.sh` | VPS exit peer |
-| `scripts/Deploy-WireGuardClient.ps1` | copy/symlink from `wireguard-setup` |
+Port **51820/udp**. Exit peer on VPS-2: **only Home-3** with `0.0.0.0/0`.
 
 ## Open work
 
-- [ ] Run exit prep on **Home-3** (admin PS + VPS VPN-2 peer)
-- [ ] Deploy **Home-1** WG + exit VPN-1
-- [ ] Build **CentOS gw** VM + VMware VMnet-gw on laptop
-- [ ] Squid + egress-check timer on CentOS
-- [ ] Fill `config/EGRESS-IPS.example.md` with real WAN IPs
+- [x] CentOS gw VM + wg-home3 + scripts on TECHO-1
+- [x] laptop-gw + laptop peers on VPS-2
+- [x] Prepare-LaptopHost (laptop-vpn*, retire host3)
+- [ ] **Home-3 exit E2E** → CentOS egress **77.242.105.103** + Squid up
+- [ ] Corp VM → host-only 72.x + proxy (later; VMware unchanged for now)
+- [ ] Home-1 / VPS-1 (later)
 
-## Related
+## Agent runbooks
 
-- Corp VPN in VM: `_my_projects/cvpn/`
-- Transcript history: `60160116-7105-47b1-a5b1-33dfdab7c646`
+| Host | Doc |
+|------|-----|
+| **Home-3** (next) | `docs/NEXT-HOME-3-E2E.md`, `docs/AGENT-HOME-3.md` |
+| Travel laptop | `docs/AGENT-LAPTOP.md` |
+| Home-1 | `docs/AGENT-HOME-1.md` (deferred) |
+
+## Scripts
+
+| Script | Use |
+|--------|-----|
+| `scripts/Enable-WindowsWgExitNode.ps1` | Home-3 exit NAT |
+| `scripts/vps-set-exit-peer.sh` | VPS exit peer |
+| `scripts/register-laptop-gw-vpn2.sh` | Register CentOS peer from Git Bash |

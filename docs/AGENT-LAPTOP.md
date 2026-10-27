@@ -12,6 +12,12 @@
 | Win10 / Ubuntu corp | Только **host-only** VMnet-gw | Только HTTP(S) через прокси CentOS |
 | CentOS gw | eth0 host-only + eth1 NAT | WG к VPS; default через exit Home-1 **или** Home-3 |
 
+## 0. Windows-хост (до CentOS, **без VMware**)
+
+1. `scripts/Prepare-LaptopHost.ps1` от администратора (см. `docs/LAPTOP-HOST-STATUS.md`).
+2. Ключи CentOS: `scripts/clients/laptop-gw/`; шаблоны `centos/` → позже на гостя.
+3. Split-tunnel на хосте (octet **4**, `laptop-vpn*`) — только админ-доступ к hub; corp egress — через CentOS.
+
 ## 1. VMware
 
 1. **Edit → Virtual Network Editor**

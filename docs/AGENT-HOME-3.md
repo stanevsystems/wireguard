@@ -15,14 +15,17 @@
 - SSH с Home-3 к VPS: `root@45.144.30.165`, `root@176.32.32.246` (для правки `wg0.conf` на сервере).
 - Агент запускает **PowerShell от администратора** (иначе `wg show` → Permission denied).
 
-## Статус на 2026-10-26 (Home-3)
+## Статус на 2026-10-27 (Home-3)
 
 | Шаг | Статус |
 |-----|--------|
-| VPS-2 peer Home-3 `AllowedIPs = 10.200.2.2/32, 0.0.0.0/0` | **сделано** (`wg show` на `45.144.30.165`) |
-| `Enable-WindowsWgExitNode.ps1 -VpnHub 2` | **сделано** (`NetNat` `WgHomeExitNat`, `10.200.0.0/16`) |
-| E2E с CentOS ноутбука | ждёт деплoy `docs/AGENT-LAPTOP.md` |
-| WAN IP для egress-check | **`77.242.105.103`** → `config/EGRESS-IPS.example.md` |
+| VPS-2 peer Home-3 `AllowedIPs = …, 0.0.0.0/0` | **перепроверить** (см. `docs/NEXT-HOME-3-E2E.md`) |
+| `Enable-WindowsWgExitNode.ps1 -VpnHub 2` | **перепроверить** (ранее OK 2026-10-26) |
+| CentOS + laptop-gw на TECHO-1 | **готово**; handshake VPS-2 OK |
+| **E2E egress CentOS** | **блокер:** `ifconfig.me` = **45.144.30.165**, нужен WAN Home-3 |
+| WAN для egress-check | **`77.242.105.103`** → `config/EGRESS-IPS.example.md` |
+
+**Активный чеклист агента:** `docs/NEXT-HOME-3-E2E.md`
 
 ## Чеклист подготовки exit (VPN-2)
 
