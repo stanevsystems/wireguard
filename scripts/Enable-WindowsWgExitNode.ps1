@@ -20,9 +20,17 @@ $ErrorActionPreference = 'Stop'
 $NatName = 'WgHomeExitNat'
 $InternalPrefix = '10.200.0.0/16'
 
-Write-Host "Enabling IPv4 forwarding on WireGuard interfaces..." -ForegroundColor Cyan
-Get-NetAdapter | Where-Object { $_.InterfaceDescription -match 'WireGuard' -or $_.Name -match 'vpn' } | ForEach-Object {
+Write-Host "Enabling system IPv4 router (IPEnableRouter)..." -ForegroundColor Cyan
+Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters' -Name IPEnableRouter -Value 1 -Type DWord -Force
+
+Write-Host "Enabling IPv4 forwarding on WireGuard and WAN interfaces..." -ForegroundColor Cyan
+Get-NetAdapter | Where-Object {
+    $_.InterfaceDescription -match 'WireGuard' -or $_.Name -match 'vpn|host2-vpn' -or
+    ($_.Status -eq 'Up' -and $_.Name -notmatch 'Loopback|WSL|VirtualBox|VMware|vEthernet')
+} | ForEach-Object {
     Set-NetIPInterface -InterfaceIndex $_.ifIndex -AddressFamily IPv4 -Forwarding Enabled -ErrorAction SilentlyContinue
+    Set-NetIPInterface -InterfaceIndex $_.ifIndex -AddressFamily IPv4 -WeakHostReceive Enabled -ErrorAction SilentlyContinue
+    Set-NetIPInterface -InterfaceIndex $_.ifIndex -AddressFamily IPv4 -WeakHostSend Enabled -ErrorAction SilentlyContinue
 }
 
 $existing = Get-NetNat -Name $NatName -ErrorAction SilentlyContinue
@@ -44,6 +52,19 @@ foreach ($w in $wgIf) {
             New-NetFirewallRule -DisplayName $ruleName -Direction Forward `
                 -InterfaceAlias $w.Name -Action Allow | Out-Null
         }
+        $ruleNameIn = "WgExit-Forward-$($u.Name)-to-$($w.Name)"
+        if (-not (Get-NetFirewallRule -DisplayName $ruleNameIn -ErrorAction SilentlyContinue)) {
+            New-NetFirewallRule -DisplayName $ruleNameIn -Direction Forward `
+                -InterfaceAlias $u.Name -Action Allow | Out-Null
+        }
+    }
+}
+
+foreach ($w in $wgIf) {
+    $inName = "WgExit-In-$($w.Name)-10.200"
+    if (-not (Get-NetFirewallRule -DisplayName $inName -ErrorAction SilentlyContinue)) {
+        New-NetFirewallRule -DisplayName $inName -Direction Inbound -InterfaceAlias $w.Name `
+            -RemoteAddress 10.200.0.0/16 -Action Allow | Out-Null
     }
 }
 

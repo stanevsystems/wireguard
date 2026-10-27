@@ -15,14 +15,19 @@
 - SSH с Home-3 к VPS: `root@45.144.30.165`, `root@176.32.32.246` (для правки `wg0.conf` на сервере).
 - Агент запускает **PowerShell от администратора** (иначе `wg show` → Permission denied).
 
+## VPS-2: firewalld (relay между peers)
+
+Если CentOS видит **`45.144.30.165`** вместо WAN Home-3: на hub **`wg0` должен быть в `trusted`** (`scripts/vps-fix-wg0-firewalld.sh`). Иначе ping `10.200.2.5` с Home-3 даёт «net unreachable» от `10.200.2.1`.
+
 ## Статус на 2026-10-27 (Home-3)
 
 | Шаг | Статус |
 |-----|--------|
-| VPS-2 peer Home-3 `AllowedIPs = …, 0.0.0.0/0` | **перепроверить** (см. `docs/NEXT-HOME-3-E2E.md`) |
-| `Enable-WindowsWgExitNode.ps1 -VpnHub 2` | **перепроверить** (ранее OK 2026-10-26) |
-| CentOS + laptop-gw на TECHO-1 | **готово**; handshake VPS-2 OK |
-| **E2E egress CentOS** | **блокер:** `ifconfig.me` = **45.144.30.165**, нужен WAN Home-3 |
+| VPS-2 peer Home-3 `AllowedIPs = …, 0.0.0.0/0` | **OK** |
+| VPS-2 `wg0` → firewalld **trusted** | **OK** (2026-10-27) |
+| `Enable-WindowsWgExitNode.ps1 -VpnHub 2` | **OK** (+ `IPEnableRouter`) |
+| CentOS + laptop-gw на TECHO-1 | **готово**; ping `10.200.2.5` с Home-3 OK |
+| **E2E curl + Squid** | **ждёт проверки с TECHO-1** (SSH-ключ `centos-ssh` не на Home-3) |
 | WAN для egress-check | **`77.242.105.103`** → `config/EGRESS-IPS.example.md` |
 
 **Активный чеклист агента:** `docs/NEXT-HOME-3-E2E.md`

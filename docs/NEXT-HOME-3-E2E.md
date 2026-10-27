@@ -16,25 +16,33 @@ corp VM (позже) → CentOS :3128 (192.168.72.128) → wg-home3 full tunnel
 | Legacy **host3-*** | сняты |
 | **CentOS** wg-home3 (10.200.2.5) | peer на VPS-2, handshake OK |
 | CentOS Squid + egress-check | установлены; Squid **off** пока egress ≠ 77.242.105.103 |
-| CentOS SSH агента | `scripts/clients/centos-ssh/id_ed25519` |
+| CentOS SSH агента | `scripts/clients/centos-ssh/id_ed25519` (на **TECHO-1**, не на Home-3) |
 
-**Симптом блокера:** с CentOS `curl ifconfig.me` → **`45.144.30.165`** (VPS), нужно **`77.242.105.103`**.
+**Симптом блокера (был):** с CentOS `curl ifconfig.me` → **`45.144.30.165`** (VPS), нужно **`77.242.105.103`**.
 
-## Задачи агента на Home-3 (выполнить на машине Home-3)
+**Исправление 2026-10-27 (Home-3):** на VPS-2 интерфейс **`wg0` не был в зоне firewalld** (`no zone` + `masquerade` на `public`) — hub не relay'ил трафик между peers, часть шла SNAT на VPS. Добавлено: `firewall-cmd --zone=trusted --add-interface=wg0` (+ PostUp в `/etc/wireguard/wg0.conf`). После этого **ping 10.200.2.5** с Home-3 и с VPS OK.
 
-- [ ] **1. WireGuard:** службы `WireGuardTunnel$host2-vpn1/vpn2` Running; `wg show` — handshake на **45.144.30.165** / **10.200.2.1**.
-- [ ] **2. Exit NAT:** Admin PS: `scripts/Enable-WindowsWgExitNode.ps1 -VpnHub 2` (повторно, idempotent).
-- [ ] **3. VPS-2 peer Home-3:** в `/etc/wireguard/wg0.conf` у **Home-3** (10.200.2.2): `AllowedIPs = 10.200.2.2/32, 0.0.0.0/0`. У **laptop-gw** (10.200.2.5): **только** `10.200.2.5/32` (без `0.0.0.0/0`). Один peer с `0.0.0.0/0` на hub.
-- [ ] **4. VPS-2 forwarding:** `sysctl net.ipv4.ip_forward=1`; при необходимости iptables/nft forward (обычно wg уже маршрутизирует к exit peer).
-- [ ] **5. WAN IP:** `(Invoke-RestMethod https://ifconfig.me/ip).Trim()` — сверить с **77.242.105.103**; если ISP сменился — сообщить, обновить `/etc/wireguard/expected-egress.conf` на CentOS.
-- [ ] **6. E2E:** когда пункты 1–4 OK — с CentOS (SSH `root@192.168.181.182` с ноутбука или попросить агента на TECHO-1):
-  ```bash
-  systemctl restart wg-quick@wg-home3
-  curl -4 -s https://ifconfig.me/ip
-  /usr/local/sbin/egress-check.sh && systemctl is-active squid
-  curl -4 -s --proxy http://192.168.72.128:3128 https://ifconfig.me/ip
-  ```
-  Ожидание: оба curl → **Home-3 WAN**, Squid **active**.
+## Задачи агента на Home-3
+
+- [x] **1. WireGuard:** службы `WireGuardTunnel$host2-vpn1/vpn2` Running; `wg show` — handshake на **45.144.30.165** / **10.200.2.1** (host2-vpn2).
+- [x] **2. Exit NAT:** `Enable-WindowsWgExitNode.ps1 -VpnHub 2` (+ `IPEnableRouter`, forward rules).
+- [x] **3. VPS-2 peer Home-3:** `10.200.2.2/32, 0.0.0.0/0`; laptop-gw **только** `10.200.2.5/32`.
+- [x] **4. VPS-2 forwarding:** `ip_forward=1`; **wg0 → trusted** (`scripts/vps-fix-wg0-firewalld.sh`).
+- [x] **5. WAN IP Home-3:** **77.242.105.103** (без изменений).
+- [ ] **6. E2E curl + Squid:** выполнить **с TECHO-1** (есть ключ `centos-ssh`) или скопировать ключ на Home-3:
+
+```bash
+# Git Bash / TECHO-1 или Home-3 после scp ключа
+ssh -i scripts/clients/centos-ssh/id_ed25519 root@10.200.2.5 'systemctl restart wg-quick@wg-home3; sleep 2; curl -4 -s https://ifconfig.me/ip; /usr/local/sbin/egress-check.sh; systemctl is-active squid; curl -4 -s --proxy http://192.168.72.128:3128 https://ifconfig.me/ip'
+```
+
+Ожидание: оба curl → **77.242.105.103**, Squid **active**.
+
+Альтернатива с LAN ноутбука:
+
+```bash
+ssh -i scripts/clients/centos-ssh/id_ed25519 root@192.168.181.182 '... те же команды ...'
+```
 
 ## Не в scope сейчас
 
